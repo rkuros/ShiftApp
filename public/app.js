@@ -1295,67 +1295,305 @@ const ShiftApp = {
             });
     },
     
-    // Render templates list
+    // Render templates list with cards
     renderTemplatesList: function() {
         if (!this.currentUser) return;
         
         console.log('Rendering templates list...');
-        const container = document.getElementById('templates-list');
-        if (!container) {
-            console.error('Templates list container not found');
+        const grid = document.getElementById('templates-grid');
+        if (!grid) {
+            console.error('Templates grid container not found');
             return;
         }
         
-        // Clear form fields
-        const nameField = document.getElementById('template-name');
-        const startField = document.getElementById('template-start');
-        const endField = document.getElementById('template-end');
-        if (nameField) nameField.value = '';
-        if (startField) startField.value = '';
-        if (endField) endField.value = '';
+        // Clear the grid
+        grid.innerHTML = '';
+        
+        // Set up event listeners for template controls
+        this.setupTemplateControls();
         
         // Check if we have templates
         if (!this.shiftTemplates || this.shiftTemplates.length === 0) {
-            container.innerHTML = '<p>テンプレートがありません</p>';
+            grid.innerHTML = `
+                <div class="templates-empty">
+                    <i class="fas fa-clipboard"></i>
+                    <h3>テンプレートがありません</h3>
+                    <p>シフトテンプレートを作成して、シフト登録を効率化しましょう</p>
+                </div>
+            `;
             return;
         }
         
-        // Sort templates by name
-        const sortedTemplates = [...this.shiftTemplates].sort((a, b) => a.name.localeCompare(b.name));
-        
-        // Create HTML for templates table
-        let html = `
-            <table class="templates-table">
-                <thead>
-                    <tr>
-                        <th>名前</th>
-                        <th>開始時間</th>
-                        <th>終了時間</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-        
-        sortedTemplates.forEach(template => {
-            html += `
-                <tr>
-                    <td>${template.name}</td>
-                    <td>${template.startTime}</td>
-                    <td>${template.endTime}</td>
-                    <td>
-                        <button class="edit-btn" onclick="ShiftApp.editTemplate('${template.id}')">編集</button>
-                        <button class="delete-btn" onclick="ShiftApp.deleteTemplate('${template.id}')">削除</button>
-                    </td>
-                </tr>
-            `;
+        // Initialize templates with categories based on time
+        const templates = this.shiftTemplates.map(template => {
+            const startHour = parseInt(template.startTime.split(':')[0], 10);
+            let category = 'afternoon'; // Default
+            
+            if (startHour < 12) {
+                category = 'morning';
+            } else if (startHour >= 17) {
+                category = 'evening';
+            }
+            
+            return {
+                ...template,
+                category,
+                usage: template.usage || 0  // For sorting by usage
+            };
         });
         
-        html += '</tbody></table>';
-        container.innerHTML = html;
+        // Sort templates based on selected sort option
+        const sortSelect = document.getElementById('template-sort');
+        const sortValue = sortSelect ? sortSelect.value : 'name';
+        
+        let sortedTemplates;
+        switch (sortValue) {
+            case 'time':
+                sortedTemplates = [...templates].sort((a, b) => {
+                    // First by category (morning -> afternoon -> evening)
+                    const categoryOrder = { morning: 1, afternoon: 2, evening: 3 };
+                    if (categoryOrder[a.category] !== categoryOrder[b.category]) {
+                        return categoryOrder[a.category] - categoryOrder[b.category];
+                    }
+                    // Then by start time
+                    return a.startTime.localeCompare(b.startTime);
+                });
+                break;
+            case 'recent':
+                sortedTemplates = [...templates].sort((a, b) => b.usage - a.usage);
+                break;
+            case 'name':
+            default:
+                sortedTemplates = [...templates].sort((a, b) => a.name.localeCompare(b.name));
+                break;
+        }
+        
+        // Apply filter by category
+        const timeFilter = document.getElementById('template-time-filter');
+        const filterValue = timeFilter ? timeFilter.value : '';
+        
+        if (filterValue) {
+            sortedTemplates = sortedTemplates.filter(t => t.category === filterValue);
+        }
+        
+        // Apply search filter
+        const searchInput = document.getElementById('template-search');
+        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+        
+        if (searchTerm) {
+            sortedTemplates = sortedTemplates.filter(t => 
+                t.name.toLowerCase().includes(searchTerm)
+            );
+        }
+        
+        // Create template cards
+        sortedTemplates.forEach(template => {
+            // Calculate time bar width and position based on 24-hour scale
+            const startHour = parseInt(template.startTime.split(':')[0], 10);
+            const startMinutes = parseInt(template.startTime.split(':')[1], 10);
+            const endHour = parseInt(template.endTime.split(':')[0], 10);
+            const endMinutes = parseInt(template.endTime.split(':')[1], 10);
+            
+            const startDecimal = startHour + (startMinutes / 60);
+            const endDecimal = endHour + (endMinutes / 60);
+            const duration = endDecimal - startDecimal;
+            
+            // Position the bar (assuming 24-hour scale)
+            const startPercent = (startDecimal / 24) * 100;
+            const widthPercent = (duration / 24) * 100;
+            
+            const card = document.createElement('div');
+            card.className = `template-card fade-in`;
+            card.dataset.id = template.id;
+            card.dataset.category = template.category;
+            
+            card.innerHTML = `
+                <div class="template-header">
+                    <h3 class="template-title">${template.name}</h3>
+                    <span class="template-category ${template.category}">
+                        ${template.category === 'morning' ? '朝番' : 
+                          template.category === 'afternoon' ? '昼番' : '夜番'}
+                    </span>
+                </div>
+                <div class="template-body">
+                    <div class="time-display">
+                        <div class="time-bar ${template.category}" 
+                             style="left: ${startPercent}%; width: ${widthPercent}%">
+                        </div>
+                    </div>
+                    <div class="time-labels">
+                        ${template.startTime} - ${template.endTime}
+                    </div>
+                </div>
+                <div class="template-footer">
+                    <div class="template-actions">
+                        <button class="btn-apply" onclick="ShiftApp.applyTemplate('${template.id}')">
+                            <i class="fas fa-check"></i> 適用
+                        </button>
+                        <button class="btn-edit" onclick="ShiftApp.editTemplate('${template.id}')">
+                            <i class="fas fa-edit"></i> 編集
+                        </button>
+                        <button class="btn-delete" onclick="ShiftApp.deleteTemplate('${template.id}')">
+                            <i class="fas fa-trash"></i> 削除
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            grid.appendChild(card);
+        });
     },
     
-    // Edit template - populate form with template data
+    // Set up template controls
+    setupTemplateControls: function() {
+        // Set up search input
+        const searchInput = document.getElementById('template-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                this.renderTemplatesList();
+            });
+        }
+        
+        // Set up category filter
+        const categoryFilter = document.getElementById('template-time-filter');
+        if (categoryFilter) {
+            categoryFilter.addEventListener('change', () => {
+                this.renderTemplatesList();
+            });
+        }
+        
+        // Set up sort options
+        const sortSelect = document.getElementById('template-sort');
+        if (sortSelect) {
+            sortSelect.addEventListener('change', () => {
+                this.renderTemplatesList();
+            });
+        }
+        
+        // Set up new template button
+        const newTemplateBtn = document.getElementById('new-template-btn');
+        if (newTemplateBtn) {
+            newTemplateBtn.addEventListener('click', () => {
+                this.showTemplateModal();
+            });
+        }
+        
+        // Set up close modal button
+        const closeModalBtn = document.querySelector('.close-modal');
+        if (closeModalBtn) {
+            closeModalBtn.addEventListener('click', () => {
+                this.hideTemplateModal();
+            });
+        }
+        
+        // Set up time presets
+        const timePresets = document.querySelectorAll('.time-preset');
+        timePresets.forEach(preset => {
+            preset.addEventListener('click', (e) => {
+                const startTime = e.target.dataset.start;
+                const endTime = e.target.dataset.end;
+                
+                const startInput = document.getElementById('template-start');
+                const endInput = document.getElementById('template-end');
+                
+                if (startInput) startInput.value = startTime;
+                if (endInput) endInput.value = endTime;
+                
+                // Set category based on time
+                this.setCategoryFromTime(startTime);
+            });
+        });
+    },
+    
+    // Set category based on time
+    setCategoryFromTime: function(startTime) {
+        if (!startTime) return;
+        
+        const hour = parseInt(startTime.split(':')[0], 10);
+        let category = 'afternoon'; // Default
+        
+        if (hour < 12) {
+            category = 'morning';
+        } else if (hour >= 17) {
+            category = 'evening';
+        }
+        
+        // Find the matching radio button and check it
+        const radio = document.querySelector(`.category-label.${category} input[type="radio"]`);
+        if (radio) radio.checked = true;
+    },
+    
+    // Show template modal
+    showTemplateModal: function() {
+        const modal = document.getElementById('template-modal');
+        if (!modal) return;
+        
+        // Reset form
+        this.resetTemplateForm();
+        
+        // Show modal
+        modal.classList.add('active');
+        
+        // Prevent body scrolling
+        document.body.style.overflow = 'hidden';
+    },
+    
+    // Hide template modal
+    hideTemplateModal: function() {
+        const modal = document.getElementById('template-modal');
+        if (!modal) return;
+        
+        modal.classList.remove('active');
+        
+        // Allow body scrolling again
+        document.body.style.overflow = '';
+    },
+    
+    // Reset template form
+    resetTemplateForm: function() {
+        const form = document.getElementById('template-form');
+        if (!form) return;
+        
+        form.reset();
+        this._editingTemplateId = undefined;
+        
+        // Default to afternoon category
+        const afternoonRadio = document.querySelector('.category-label.afternoon input[type="radio"]');
+        if (afternoonRadio) afternoonRadio.checked = true;
+    },
+    
+    // Apply template to shift form
+    applyTemplate: function(templateId) {
+        const template = this.shiftTemplates.find(t => t.id.toString() === templateId);
+        if (!template) return;
+        
+        // Track usage
+        template.usage = (template.usage || 0) + 1;
+        
+        // Navigate to shift register form
+        this.showSection('shift-register-section');
+        
+        // Set the template values
+        const shiftStartInput = document.getElementById('shift-start');
+        const shiftEndInput = document.getElementById('shift-end');
+        
+        if (shiftStartInput) shiftStartInput.value = template.startTime;
+        if (shiftEndInput) shiftEndInput.value = template.endTime;
+        
+        // Focus on the date input since that's the main thing needed after selecting a template
+        const dateInput = document.getElementById('shift-date');
+        if (dateInput) {
+            dateInput.focus();
+            
+            // Set the date to today by default, if empty
+            if (!dateInput.value) {
+                const today = this.formatDate(new Date());
+                dateInput.value = today;
+            }
+        }
+    },
+    
+    // Edit template - open modal and populate form with template data
     editTemplate: function(templateId) {
         if (!this.shiftTemplates) return;
         
@@ -1364,6 +1602,9 @@ const ShiftApp = {
             console.error('Template not found:', templateId);
             return;
         }
+        
+        // Show the modal
+        this.showTemplateModal();
         
         // Populate form fields
         const nameField = document.getElementById('template-name');
@@ -1377,9 +1618,8 @@ const ShiftApp = {
         // Store template ID for update
         this._editingTemplateId = templateId;
         
-        // Scroll to form
-        const form = document.getElementById('template-form');
-        if (form) form.scrollIntoView({ behavior: 'smooth' });
+        // Set category based on time
+        this.setCategoryFromTime(template.startTime);
     },
     
     // Delete template
@@ -1468,6 +1708,9 @@ const ShiftApp = {
             if (endField) endField.value = '';
             
             this._editingTemplateId = undefined;
+            
+            // Hide modal
+            this.hideTemplateModal();
             
             // Show success message
             alert(isUpdate ? 'テンプレートが更新されました' : 'テンプレートが作成されました');

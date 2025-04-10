@@ -271,27 +271,90 @@
                 <!-- シフトテンプレート画面 -->
                 <div id="templates-section" class="section">
                     <h2>シフトテンプレート</h2>
-                    <div class="templates-list">
-                        <h3>テンプレート一覧</h3>
-                        <ul id="templates-list"></ul>
+                    
+                    <!-- 検索とフィルターコントロール -->
+                    <div class="template-controls">
+                        <div class="filter-group search-group">
+                            <div class="search-input-wrapper">
+                                <input type="text" id="template-search" placeholder="テンプレート名で検索...">
+                                <i class="fas fa-search search-icon"></i>
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <label for="template-time-filter">時間帯:</label>
+                            <select id="template-time-filter">
+                                <option value="">すべて</option>
+                                <option value="morning">朝番 (早朝〜正午)</option>
+                                <option value="afternoon">昼番 (正午〜夕方)</option>
+                                <option value="evening">夜番 (夕方〜深夜)</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="template-sort">並び順:</label>
+                            <select id="template-sort">
+                                <option value="name">名前順</option>
+                                <option value="time">時間順</option>
+                                <option value="recent">最近使用</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <button id="new-template-btn" class="btn-primary">
+                                <i class="fas fa-plus"></i> 新規作成
+                            </button>
+                        </div>
                     </div>
-                    <div class="add-template">
-                        <h3>テンプレート追加/編集</h3>
-                        <form id="template-form">
-                            <div class="form-group">
-                                <label for="template-name">テンプレート名:</label>
-                                <input type="text" id="template-name" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="template-start">開始時間:</label>
-                                <input type="time" id="template-start" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="template-end">終了時間:</label>
-                                <input type="time" id="template-end" required>
-                            </div>
-                            <button type="submit">保存</button>
-                        </form>
+                    
+                    <!-- テンプレートカード一覧 -->
+                    <div class="templates-container">
+                        <div id="templates-grid"></div>
+                    </div>
+                    
+                    <!-- テンプレート作成/編集モーダル -->
+                    <div id="template-modal" class="modal">
+                        <div class="modal-content">
+                            <span class="close-modal">&times;</span>
+                            <h3>テンプレート追加/編集</h3>
+                            <form id="template-form">
+                                <div class="form-group">
+                                    <label for="template-name">テンプレート名:</label>
+                                    <input type="text" id="template-name" placeholder="例: 早番シフト" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>カテゴリー:</label>
+                                    <div class="category-selector">
+                                        <label class="category-label morning">
+                                            <input type="radio" name="template-category" value="morning">
+                                            <span>朝番</span>
+                                        </label>
+                                        <label class="category-label afternoon">
+                                            <input type="radio" name="template-category" value="afternoon">
+                                            <span>昼番</span>
+                                        </label>
+                                        <label class="category-label evening">
+                                            <input type="radio" name="template-category" value="evening">
+                                            <span>夜番</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="time-selector">
+                                    <div class="form-group">
+                                        <label for="template-start">開始時間:</label>
+                                        <input type="time" id="template-start" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="template-end">終了時間:</label>
+                                        <input type="time" id="template-end" required>
+                                    </div>
+                                </div>
+                                <div class="quick-time-buttons">
+                                    <button type="button" class="time-preset" data-start="09:00" data-end="17:00">9:00-17:00</button>
+                                    <button type="button" class="time-preset" data-start="08:30" data-end="17:30">8:30-17:30</button>
+                                    <button type="button" class="time-preset" data-start="13:00" data-end="22:00">13:00-22:00</button>
+                                    <button type="button" class="time-preset" data-start="17:00" data-end="22:00">17:00-22:00</button>
+                                </div>
+                                <button type="submit" class="btn-primary">保存</button>
+                            </form>
+                        </div>
                     </div>
                 </div>
 
