@@ -78,7 +78,7 @@ const ShiftApp = {
         });
     },
     
-    // Show a specific section with animation
+    // Show a specific section with unified fadeIn animation
     showSection: function(sectionId) {
         console.log(`Showing section: ${sectionId}`);
         
@@ -99,7 +99,7 @@ const ShiftApp = {
         targetSection.classList.add('active');
         targetSection.style.display = 'block'; // Explicitly show the target section
         
-        // Add animation class (unified for all sections)
+        // Add fade-in animation for ALL sections (unified animation)
         targetSection.classList.add('fade-in');
         
         this.currentSection = sectionId;
