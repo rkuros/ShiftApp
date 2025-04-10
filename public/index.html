@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シフト管理アプリ</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            margin: -20px -20px 20px;
+            padding: 30px 20px;
+            border-radius: 12px 12px 0 0;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        header h1 {
+            color: white;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin: 0;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        
+        .content {
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .section h2 {
+            color: #2c3e50;
+            font-weight: 700;
+            position: relative;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .section h2:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+        }
+        
+        footer {
+            background-color: #2c3e50;
+            color: white;
+            margin: 20px -20px -20px;
+            padding: 20px;
+            border-radius: 0 0 12px 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>シフト管理アプリ</h1>
+            <div id="user-info">
+                <span id="current-user">ゲスト</span>
+                <button id="login-btn">ログイン</button>
+                <button id="logout-btn" style="display: none;">ログアウト</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="sidebar" id="sidebar">
+                <h2>メニュー</h2>
+                <ul>
+                    <li><a href="#" id="view-shifts"><i class="fas fa-calendar-alt"></i> シフト一覧</a></li>
+                    <li><a href="#" id="register-shift"><i class="fas fa-plus-circle"></i> シフト登録</a></li>
+                    <li><a href="#" id="shift-templates"><i class="fas fa-copy"></i> シフトテンプレート</a></li>
+                    <li><a href="#" id="shift-approvals"><i class="fas fa-check-circle"></i> シフト承認</a></li>
+                    <li><a href="#" id="manage-users"><i class="fas fa-users"></i> ユーザー管理</a></li>
+                    <li>
+                        <a href="#" id="notifications-link"><i class="fas fa-bell"></i> 通知
+                            <span id="notification-badge" class="badge">0</span>
+                        </a>
+                    </li>
+                    <li><a href="#" id="reports-link"><i class="fas fa-chart-bar"></i> レポート</a></li>
+                </ul>
+            </div>
+
+            <div class="content">
+                <!-- ログイン画面 -->
+                <div id="login-section" class="section">
+                    <h2>ログイン</h2>
+                    <form id="login-form">
+                        <div class="form-group">
+                            <label for="username">ユーザー名:</label>
+                            <input type="text" id="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">パスワード:</label>
+                            <input type="password" id="password" required>
+                        </div>
+                        <button type="submit">ログイン</button>
+                    </form>
+                    <div class="register-link">
+                        <p>アカウントをお持ちでない方は<a href="#" id="show-register">新規登録</a>してください。</p>
+                    </div>
+                </div>
+
+                <!-- 新規登録画面 -->
+                <div id="register-section" class="section">
+                    <h2>新規登録</h2>
+                    <form id="register-form">
+                        <div class="form-group">
+                            <label for="reg-username">ユーザー名:</label>
+                            <input type="text" id="reg-username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="reg-password">パスワード:</label>
+                            <input type="password" id="reg-password" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="reg-email">メールアドレス:</label>
+                            <input type="email" id="reg-email">
+                        </div>
+                        <div class="form-group">
+                            <label for="reg-department">部署:</label>
+                            <select id="reg-department">
+                                <option value="管理部">管理部</option>
+                                <option value="営業部">営業部</option>
+                                <option value="開発部">開発部</option>
+                                <option value="カスタマーサポート">カスタマーサポート</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="reg-role">役割:</label>
+                            <select id="reg-role">
+                                <option value="staff">スタッフ</option>
+                                <option value="manager">管理者</option>
+                            </select>
+                        </div>
+                        <button type="submit">登録</button>
+                    </form>
+                    <div class="login-link">
+                        <p>既にアカウントをお持ちの方は<a href="#" id="show-login">ログイン</a>してください。</p>
+                    </div>
+                </div>
+
+                <!-- シフト一覧画面 -->
+                <div id="shifts-section" class="section">
+                    <h2>シフト一覧</h2>
+                    <div class="calendar-controls">
+                        <button id="prev-month">&lt;</button>
+                        <span id="current-month">2025年4月</span>
+                        <button id="next-month">&gt;</button>
+                    </div>
+                    <div class="filter-controls">
+                        <label for="department-filter">部署でフィルター:</label>
+                        <select id="department-filter">
+                            <option value="">すべて</option>
+                            <option value="管理部">管理部</option>
+                            <option value="営業部">営業部</option>
+                            <option value="開発部">開発部</option>
+                            <option value="カスタマーサポート">カスタマーサポート</option>
+                        </select>
+                    </div>
+                    <div class="export-controls">
+                        <button id="export-csv">CSVエクスポート</button>
+                        <button id="export-pdf">PDFエクスポート</button>
+                    </div>
+                    <div id="calendar"></div>
+                    <div id="shift-details"></div>
+                </div>
+
+                <!-- シフト登録画面 -->
+                <div id="shift-register-section" class="section">
+                    <h2>シフト登録</h2>
+                    <form id="shift-form">
+                        <div class="form-group">
+                            <label for="apply-template">テンプレート:</label>
+                            <select id="apply-template">
+                                <option value="">テンプレートを選択</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="shift-date">日付:</label>
+                            <input type="date" id="shift-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="shift-start">開始時間:</label>
+                            <input type="time" id="shift-start" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="shift-end">終了時間:</label>
+                            <input type="time" id="shift-end" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="shift-repeat">繰り返し:</label>
+                            <select id="shift-repeat">
+                                <option value="none">繰り返しなし</option>
+                                <option value="weekly">毎週</option>
+                                <option value="biweekly">隔週</option>
+                                <option value="monthly">毎月</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="shift-notes">備考:</label>
+                            <textarea id="shift-notes"></textarea>
+                        </div>
+                        <button type="submit">登録</button>
+                    </form>
+                </div>
+
+                <!-- ユーザー管理画面 -->
+                <div id="users-section" class="section">
+                    <h2>ユーザー管理</h2>
+                    <div class="user-list">
+                        <h3>ユーザー一覧</h3>
+                        <ul id="users-list"></ul>
+                    </div>
+                    <div class="add-user">
+                        <h3>ユーザー追加</h3>
+                        <form id="add-user-form">
+                            <div class="form-group">
+                                <label for="new-username">ユーザー名:</label>
+                                <input type="text" id="new-username" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-password">パスワード:</label>
+                                <input type="password" id="new-password" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-email">メールアドレス:</label>
+                                <input type="email" id="new-email">
+                            </div>
+                            <div class="form-group">
+                                <label for="user-department">部署:</label>
+                                <select id="user-department">
+                                    <option value="管理部">管理部</option>
+                                    <option value="営業部">営業部</option>
+                                    <option value="開発部">開発部</option>
+                                    <option value="カスタマーサポート">カスタマーサポート</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="user-role">役割:</label>
+                                <select id="user-role">
+                                    <option value="staff">スタッフ</option>
+                                    <option value="manager">管理者</option>
+                                </select>
+                            </div>
+                            <button type="submit">追加</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- シフトテンプレート画面 -->
+                <div id="templates-section" class="section">
+                    <h2>シフトテンプレート</h2>
+                    <div class="templates-list">
+                        <h3>テンプレート一覧</h3>
+                        <ul id="templates-list"></ul>
+                    </div>
+                    <div class="add-template">
+                        <h3>テンプレート追加/編集</h3>
+                        <form id="template-form">
+                            <div class="form-group">
+                                <label for="template-name">テンプレート名:</label>
+                                <input type="text" id="template-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="template-start">開始時間:</label>
+                                <input type="time" id="template-start" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="template-end">終了時間:</label>
+                                <input type="time" id="template-end" required>
+                            </div>
+                            <button type="submit">保存</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- シフト承認画面 -->
+                <div id="approvals-section" class="section">
+                    <h2>シフト承認</h2>
+                    <div class="approvals-list">
+                        <h3>承認待ちシフト</h3>
+                        <ul id="approvals-list"></ul>
+                    </div>
+                </div>
+
+                <!-- 通知画面 -->
+                <div id="notifications-section" class="section">
+                    <h2>通知</h2>
+                    <ul id="notifications-list"></ul>
+                </div>
+
+                <!-- レポート画面 -->
+                <div id="reports-section" class="section">
+                    <h2>レポート</h2>
+                    <div class="search-section">
+                        <h3>シフト検索</h3>
+                        <form id="search-form">
+                            <div class="form-group">
+                                <label for="search-type">検索タイプ:</label>
+                                <select id="search-type">
+                                    <option value="user">ユーザー</option>
+                                    <option value="date">日付</option>
+                                    <option value="department">部署</option>
+                                    <option value="notes">備考</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="search-term">検索語:</label>
+                                <input type="text" id="search-term" required>
+                            </div>
+                            <button type="submit">検索</button>
+                        </form>
+                        <div id="search-results"></div>
+                    </div>
+                    <div class="export-section">
+                        <h3>データエクスポート</h3>
+                        <p>シフト一覧画面からCSVまたはPDF形式でエクスポートできます。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2025 シフト管理アプリ</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
