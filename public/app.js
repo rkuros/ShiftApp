@@ -26,38 +26,8 @@ const ShiftApp = {
         // Check if device is mobile
         this.checkDeviceType();
         
-        // Check for stored authentication
-        const storedToken = localStorage.getItem('token');
-        const storedUser = localStorage.getItem('user');
-        
-        if (storedToken && storedUser) {
-            try {
-                console.log('Found stored authentication, attempting to restore session');
-                this.token = storedToken;
-                this.currentUser = JSON.parse(storedUser);
-                
-                // Fetch initial data and show shifts
-                this.fetchInitialData()
-                    .then(() => {
-                        this.showLoggedInState();
-                        this.showSection('shifts-section');
-                        this.renderCalendar();
-                        this.checkNotifications();
-                        console.log('Session restored successfully');
-                    })
-                    .catch(error => {
-                        console.error('Error restoring session:', error);
-                        // If there's an error (like expired token), clear stored data and show login
-                        this.logout();
-                    });
-            } catch (error) {
-                console.error('Error parsing stored user data:', error);
-                this.logout();
-            }
-        } else {
-            // No stored authentication, show login section
-            this.showSection('login-section');
-        }
+        // Always show login section on initialization - no persistent session
+        this.showSection('login-section');
         
         console.log('ShiftApp initialization complete!');
     },
@@ -78,7 +48,7 @@ const ShiftApp = {
         });
     },
     
-    // Show a specific section with unified fadeIn animation
+    // Show a specific section with animation
     showSection: function(sectionId) {
         console.log(`Showing section: ${sectionId}`);
         
@@ -99,7 +69,7 @@ const ShiftApp = {
         targetSection.classList.add('active');
         targetSection.style.display = 'block'; // Explicitly show the target section
         
-        // Add fade-in animation for ALL sections (unified animation)
+        // Add animation class (unified for all sections)
         targetSection.classList.add('fade-in');
         
         this.currentSection = sectionId;
@@ -340,13 +310,9 @@ const ShiftApp = {
             
             console.log('Login successful, received token and user data');
             
-            // Store token and user data in memory and localStorage
+            // Store token and user data in memory only (not localStorage)
             this.token = responseData.token;
             this.currentUser = responseData.user;
-            
-            // Store in localStorage for persistent login
-            localStorage.setItem('token', this.token);
-            localStorage.setItem('user', JSON.stringify(this.currentUser));
             
             // Fetch initial data and show shifts
             try {
@@ -403,13 +369,9 @@ const ShiftApp = {
             // Parse the response
             const responseData = await response.json();
             
-            // Store token and user data in memory and localStorage
+            // Store token and user data in memory only
             this.token = responseData.token;
             this.currentUser = responseData.user;
-            
-            // Store in localStorage for persistent login
-            localStorage.setItem('token', this.token);
-            localStorage.setItem('user', JSON.stringify(this.currentUser));
             
             // Fetch initial data
             await this.fetchInitialData();
@@ -431,10 +393,6 @@ const ShiftApp = {
     logout: function() {
         this.token = null;
         this.currentUser = null;
-        
-        // Clear localStorage authentication data
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
         
         document.getElementById('current-user').textContent = 'ゲスト';
         document.getElementById('login-btn').style.display = 'inline-block';
@@ -933,98 +891,65 @@ const ShiftApp = {
         // Sort users by username
         const sortedUsers = [...this.users].sort((a, b) => a.username.localeCompare(b.username));
         
-        // Create cards container
-        const cardsContainer = document.createElement('div');
-        cardsContainer.className = 'user-cards-container';
-        
-        // Add filtering controls
-        const filterControls = document.createElement('div');
-        filterControls.className = 'user-filter-controls';
-        filterControls.innerHTML = `
-            <div class="filter-group">
-                <label for="user-search">検索:</label>
-                <div class="search-input-wrapper">
+        // Create table for users
+        let html = `
+            <div class="users-filter">
+                <div class="filter-item">
+                    <label for="user-search">検索:</label>
                     <input type="text" id="user-search" placeholder="ユーザー名で検索..." onkeyup="ShiftApp.filterUsers()">
-                    <i class="fas fa-search search-icon"></i>
+                </div>
+                <div class="filter-item">
+                    <label for="user-department-filter">部署:</label>
+                    <select id="user-department-filter" onchange="ShiftApp.filterUsers()">
+                        <option value="">すべて</option>
+                        ${this.departments.map(dept => `<option value="${dept.name}">${dept.name}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="user-role-filter">役割:</label>
+                    <select id="user-role-filter" onchange="ShiftApp.filterUsers()">
+                        <option value="">すべて</option>
+                        <option value="staff">スタッフ</option>
+                        <option value="manager">管理者</option>
+                    </select>
                 </div>
             </div>
-            <div class="filter-group">
-                <label for="user-department-filter">部署:</label>
-                <select id="user-department-filter" onchange="ShiftApp.filterUsers()">
-                    <option value="">すべて</option>
-                    ${this.departments.map(dept => `<option value="${dept.name}">${dept.name}</option>`).join('')}
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="user-role-filter">役割:</label>
-                <select id="user-role-filter" onchange="ShiftApp.filterUsers()">
-                    <option value="">すべて</option>
-                    <option value="staff">スタッフ</option>
-                    <option value="manager">管理者</option>
-                </select>
-            </div>
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>ユーザー名</th>
+                        <th>メールアドレス</th>
+                        <th>部署</th>
+                        <th>役割</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
         `;
         
-        container.innerHTML = '';
-        container.appendChild(filterControls);
-        
-        // Create cards for users
+        // Add rows for each user
         sortedUsers.forEach(user => {
-            // Get user color based on username
-            const userColorClass = this.getUserColorClass(user.username);
-            
-            const card = document.createElement('div');
-            card.className = `user-card ${userColorClass} ${user.role}`;
-            card.dataset.username = user.username;
-            card.dataset.department = user.department || '';
-            card.dataset.role = user.role || 'staff';
-            
-            // Display admin badge if applicable
             const isAdmin = user.username === 'admin';
-            const adminBadge = isAdmin ? '<span class="admin-badge">システム管理者</span>' : '';
-            const roleBadge = `<span class="role-badge ${user.role}">${user.role === 'manager' ? '管理者' : 'スタッフ'}</span>`;
+            const roleName = user.role === 'manager' ? '管理者' : 'スタッフ';
             
-            card.innerHTML = `
-                <div class="user-card-header">
-                    <div class="user-avatar">
-                        <i class="fas fa-user"></i>
-                    </div>
-                    <div class="user-name">
-                        <h3>${user.username}</h3>
-                        <div class="user-badges">
-                            ${roleBadge}
-                            ${adminBadge}
-                        </div>
-                    </div>
-                </div>
-                <div class="user-card-body">
-                    <div class="user-info">
-                        <div class="info-item">
-                            <span class="info-label"><i class="fas fa-envelope"></i></span>
-                            <span class="info-value">${user.email || 'メール未設定'}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label"><i class="fas fa-building"></i></span>
-                            <span class="info-value">${user.department || '未所属'}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="user-card-footer">
-                    <button class="btn-edit" onclick="ShiftApp.editUser('${user.id}')">
-                        <i class="fas fa-edit"></i> 編集
-                    </button>
-                    ${!isAdmin ? `
-                        <button class="btn-delete" onclick="ShiftApp.deleteUser('${user.id}')">
-                            <i class="fas fa-trash-alt"></i> 削除
-                        </button>
-                    ` : ''}
-                </div>
+            html += `
+                <tr data-username="${user.username}" 
+                    data-department="${user.department || ''}" 
+                    data-role="${user.role || 'staff'}">
+                    <td>${user.username}</td>
+                    <td>${user.email || '-'}</td>
+                    <td>${user.department || '未所属'}</td>
+                    <td>${roleName}</td>
+                    <td>
+                        <button onclick="ShiftApp.editUser('${user.id}')">編集</button>
+                        ${!isAdmin ? `<button onclick="ShiftApp.deleteUser('${user.id}')">削除</button>` : ''}
+                    </td>
+                </tr>
             `;
-            
-            cardsContainer.appendChild(card);
         });
         
-        container.appendChild(cardsContainer);
+        html += '</tbody></table>';
+        container.innerHTML = html;
         
         // Initialize forms
         this.setupUserForm();
@@ -1077,43 +1002,35 @@ const ShiftApp = {
         const department = departmentFilter.value;
         const role = roleFilter.value;
         
-        // Get all user cards
-        const cards = document.querySelectorAll('.user-card');
+        // Get all user rows in the table
+        const rows = document.querySelectorAll('.users-table tbody tr');
         
-        // Filter cards
-        cards.forEach(card => {
-            // Check if the card matches all filters
+        // Filter rows
+        rows.forEach(row => {
+            // Check if the row matches all filters
             let visible = true;
             
             // Username search
-            const username = card.dataset.username.toLowerCase();
+            const username = row.dataset.username.toLowerCase();
             if (searchTerm && !username.includes(searchTerm)) {
                 visible = false;
             }
             
             // Department filter
-            if (department && card.dataset.department !== department) {
+            if (department && row.dataset.department !== department) {
                 visible = false;
             }
             
             // Role filter
-            if (role && card.dataset.role !== role) {
+            if (role && row.dataset.role !== role) {
                 visible = false;
             }
             
-            // Show/hide card with animation
+            // Show/hide row with animation
             if (visible) {
-                card.style.display = '';
-                setTimeout(() => {
-                    card.style.opacity = '1';
-                    card.style.transform = 'translateY(0)';
-                }, 10);
+                row.style.display = '';
             } else {
-                card.style.opacity = '0';
-                card.style.transform = 'translateY(10px)';
-                setTimeout(() => {
-                    card.style.display = 'none';
-                }, 300);
+                row.style.display = 'none';
             }
         });
     },
@@ -1295,305 +1212,67 @@ const ShiftApp = {
             });
     },
     
-    // Render templates list with cards
+    // Render templates list
     renderTemplatesList: function() {
         if (!this.currentUser) return;
         
         console.log('Rendering templates list...');
-        const grid = document.getElementById('templates-grid');
-        if (!grid) {
-            console.error('Templates grid container not found');
+        const container = document.getElementById('templates-list');
+        if (!container) {
+            console.error('Templates list container not found');
             return;
         }
         
-        // Clear the grid
-        grid.innerHTML = '';
-        
-        // Set up event listeners for template controls
-        this.setupTemplateControls();
+        // Clear form fields
+        const nameField = document.getElementById('template-name');
+        const startField = document.getElementById('template-start');
+        const endField = document.getElementById('template-end');
+        if (nameField) nameField.value = '';
+        if (startField) startField.value = '';
+        if (endField) endField.value = '';
         
         // Check if we have templates
         if (!this.shiftTemplates || this.shiftTemplates.length === 0) {
-            grid.innerHTML = `
-                <div class="templates-empty">
-                    <i class="fas fa-clipboard"></i>
-                    <h3>テンプレートがありません</h3>
-                    <p>シフトテンプレートを作成して、シフト登録を効率化しましょう</p>
-                </div>
-            `;
+            container.innerHTML = '<p>テンプレートがありません</p>';
             return;
         }
         
-        // Initialize templates with categories based on time
-        const templates = this.shiftTemplates.map(template => {
-            const startHour = parseInt(template.startTime.split(':')[0], 10);
-            let category = 'afternoon'; // Default
-            
-            if (startHour < 12) {
-                category = 'morning';
-            } else if (startHour >= 17) {
-                category = 'evening';
-            }
-            
-            return {
-                ...template,
-                category,
-                usage: template.usage || 0  // For sorting by usage
-            };
-        });
+        // Sort templates by name
+        const sortedTemplates = [...this.shiftTemplates].sort((a, b) => a.name.localeCompare(b.name));
         
-        // Sort templates based on selected sort option
-        const sortSelect = document.getElementById('template-sort');
-        const sortValue = sortSelect ? sortSelect.value : 'name';
+        // Create HTML for templates table
+        let html = `
+            <table class="templates-table">
+                <thead>
+                    <tr>
+                        <th>名前</th>
+                        <th>開始時間</th>
+                        <th>終了時間</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
         
-        let sortedTemplates;
-        switch (sortValue) {
-            case 'time':
-                sortedTemplates = [...templates].sort((a, b) => {
-                    // First by category (morning -> afternoon -> evening)
-                    const categoryOrder = { morning: 1, afternoon: 2, evening: 3 };
-                    if (categoryOrder[a.category] !== categoryOrder[b.category]) {
-                        return categoryOrder[a.category] - categoryOrder[b.category];
-                    }
-                    // Then by start time
-                    return a.startTime.localeCompare(b.startTime);
-                });
-                break;
-            case 'recent':
-                sortedTemplates = [...templates].sort((a, b) => b.usage - a.usage);
-                break;
-            case 'name':
-            default:
-                sortedTemplates = [...templates].sort((a, b) => a.name.localeCompare(b.name));
-                break;
-        }
-        
-        // Apply filter by category
-        const timeFilter = document.getElementById('template-time-filter');
-        const filterValue = timeFilter ? timeFilter.value : '';
-        
-        if (filterValue) {
-            sortedTemplates = sortedTemplates.filter(t => t.category === filterValue);
-        }
-        
-        // Apply search filter
-        const searchInput = document.getElementById('template-search');
-        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
-        
-        if (searchTerm) {
-            sortedTemplates = sortedTemplates.filter(t => 
-                t.name.toLowerCase().includes(searchTerm)
-            );
-        }
-        
-        // Create template cards
         sortedTemplates.forEach(template => {
-            // Calculate time bar width and position based on 24-hour scale
-            const startHour = parseInt(template.startTime.split(':')[0], 10);
-            const startMinutes = parseInt(template.startTime.split(':')[1], 10);
-            const endHour = parseInt(template.endTime.split(':')[0], 10);
-            const endMinutes = parseInt(template.endTime.split(':')[1], 10);
-            
-            const startDecimal = startHour + (startMinutes / 60);
-            const endDecimal = endHour + (endMinutes / 60);
-            const duration = endDecimal - startDecimal;
-            
-            // Position the bar (assuming 24-hour scale)
-            const startPercent = (startDecimal / 24) * 100;
-            const widthPercent = (duration / 24) * 100;
-            
-            const card = document.createElement('div');
-            card.className = `template-card fade-in`;
-            card.dataset.id = template.id;
-            card.dataset.category = template.category;
-            
-            card.innerHTML = `
-                <div class="template-header">
-                    <h3 class="template-title">${template.name}</h3>
-                    <span class="template-category ${template.category}">
-                        ${template.category === 'morning' ? '朝番' : 
-                          template.category === 'afternoon' ? '昼番' : '夜番'}
-                    </span>
-                </div>
-                <div class="template-body">
-                    <div class="time-display">
-                        <div class="time-bar ${template.category}" 
-                             style="left: ${startPercent}%; width: ${widthPercent}%">
-                        </div>
-                    </div>
-                    <div class="time-labels">
-                        ${template.startTime} - ${template.endTime}
-                    </div>
-                </div>
-                <div class="template-footer">
-                    <div class="template-actions">
-                        <button class="btn-apply" onclick="ShiftApp.applyTemplate('${template.id}')">
-                            <i class="fas fa-check"></i> 適用
-                        </button>
-                        <button class="btn-edit" onclick="ShiftApp.editTemplate('${template.id}')">
-                            <i class="fas fa-edit"></i> 編集
-                        </button>
-                        <button class="btn-delete" onclick="ShiftApp.deleteTemplate('${template.id}')">
-                            <i class="fas fa-trash"></i> 削除
-                        </button>
-                    </div>
-                </div>
+            html += `
+                <tr>
+                    <td>${template.name}</td>
+                    <td>${template.startTime}</td>
+                    <td>${template.endTime}</td>
+                    <td>
+                        <button class="edit-btn" onclick="ShiftApp.editTemplate('${template.id}')">編集</button>
+                        <button class="delete-btn" onclick="ShiftApp.deleteTemplate('${template.id}')">削除</button>
+                    </td>
+                </tr>
             `;
-            
-            grid.appendChild(card);
         });
+        
+        html += '</tbody></table>';
+        container.innerHTML = html;
     },
     
-    // Set up template controls
-    setupTemplateControls: function() {
-        // Set up search input
-        const searchInput = document.getElementById('template-search');
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                this.renderTemplatesList();
-            });
-        }
-        
-        // Set up category filter
-        const categoryFilter = document.getElementById('template-time-filter');
-        if (categoryFilter) {
-            categoryFilter.addEventListener('change', () => {
-                this.renderTemplatesList();
-            });
-        }
-        
-        // Set up sort options
-        const sortSelect = document.getElementById('template-sort');
-        if (sortSelect) {
-            sortSelect.addEventListener('change', () => {
-                this.renderTemplatesList();
-            });
-        }
-        
-        // Set up new template button
-        const newTemplateBtn = document.getElementById('new-template-btn');
-        if (newTemplateBtn) {
-            newTemplateBtn.addEventListener('click', () => {
-                this.showTemplateModal();
-            });
-        }
-        
-        // Set up close modal button
-        const closeModalBtn = document.querySelector('.close-modal');
-        if (closeModalBtn) {
-            closeModalBtn.addEventListener('click', () => {
-                this.hideTemplateModal();
-            });
-        }
-        
-        // Set up time presets
-        const timePresets = document.querySelectorAll('.time-preset');
-        timePresets.forEach(preset => {
-            preset.addEventListener('click', (e) => {
-                const startTime = e.target.dataset.start;
-                const endTime = e.target.dataset.end;
-                
-                const startInput = document.getElementById('template-start');
-                const endInput = document.getElementById('template-end');
-                
-                if (startInput) startInput.value = startTime;
-                if (endInput) endInput.value = endTime;
-                
-                // Set category based on time
-                this.setCategoryFromTime(startTime);
-            });
-        });
-    },
-    
-    // Set category based on time
-    setCategoryFromTime: function(startTime) {
-        if (!startTime) return;
-        
-        const hour = parseInt(startTime.split(':')[0], 10);
-        let category = 'afternoon'; // Default
-        
-        if (hour < 12) {
-            category = 'morning';
-        } else if (hour >= 17) {
-            category = 'evening';
-        }
-        
-        // Find the matching radio button and check it
-        const radio = document.querySelector(`.category-label.${category} input[type="radio"]`);
-        if (radio) radio.checked = true;
-    },
-    
-    // Show template modal
-    showTemplateModal: function() {
-        const modal = document.getElementById('template-modal');
-        if (!modal) return;
-        
-        // Reset form
-        this.resetTemplateForm();
-        
-        // Show modal
-        modal.classList.add('active');
-        
-        // Prevent body scrolling
-        document.body.style.overflow = 'hidden';
-    },
-    
-    // Hide template modal
-    hideTemplateModal: function() {
-        const modal = document.getElementById('template-modal');
-        if (!modal) return;
-        
-        modal.classList.remove('active');
-        
-        // Allow body scrolling again
-        document.body.style.overflow = '';
-    },
-    
-    // Reset template form
-    resetTemplateForm: function() {
-        const form = document.getElementById('template-form');
-        if (!form) return;
-        
-        form.reset();
-        this._editingTemplateId = undefined;
-        
-        // Default to afternoon category
-        const afternoonRadio = document.querySelector('.category-label.afternoon input[type="radio"]');
-        if (afternoonRadio) afternoonRadio.checked = true;
-    },
-    
-    // Apply template to shift form
-    applyTemplate: function(templateId) {
-        const template = this.shiftTemplates.find(t => t.id.toString() === templateId);
-        if (!template) return;
-        
-        // Track usage
-        template.usage = (template.usage || 0) + 1;
-        
-        // Navigate to shift register form
-        this.showSection('shift-register-section');
-        
-        // Set the template values
-        const shiftStartInput = document.getElementById('shift-start');
-        const shiftEndInput = document.getElementById('shift-end');
-        
-        if (shiftStartInput) shiftStartInput.value = template.startTime;
-        if (shiftEndInput) shiftEndInput.value = template.endTime;
-        
-        // Focus on the date input since that's the main thing needed after selecting a template
-        const dateInput = document.getElementById('shift-date');
-        if (dateInput) {
-            dateInput.focus();
-            
-            // Set the date to today by default, if empty
-            if (!dateInput.value) {
-                const today = this.formatDate(new Date());
-                dateInput.value = today;
-            }
-        }
-    },
-    
-    // Edit template - open modal and populate form with template data
+    // Edit template - populate form with template data
     editTemplate: function(templateId) {
         if (!this.shiftTemplates) return;
         
@@ -1602,9 +1281,6 @@ const ShiftApp = {
             console.error('Template not found:', templateId);
             return;
         }
-        
-        // Show the modal
-        this.showTemplateModal();
         
         // Populate form fields
         const nameField = document.getElementById('template-name');
@@ -1618,8 +1294,9 @@ const ShiftApp = {
         // Store template ID for update
         this._editingTemplateId = templateId;
         
-        // Set category based on time
-        this.setCategoryFromTime(template.startTime);
+        // Scroll to form
+        const form = document.getElementById('template-form');
+        if (form) form.scrollIntoView({ behavior: 'smooth' });
     },
     
     // Delete template
@@ -1708,9 +1385,6 @@ const ShiftApp = {
             if (endField) endField.value = '';
             
             this._editingTemplateId = undefined;
-            
-            // Hide modal
-            this.hideTemplateModal();
             
             // Show success message
             alert(isUpdate ? 'テンプレートが更新されました' : 'テンプレートが作成されました');
