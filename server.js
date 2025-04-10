@@ -103,12 +103,12 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ error: 'ユーザー名またはパスワードが間違っています' });
     }
     
-    // Create token - shorter expiration to require more frequent authentication
+    // Create token with one month expiration
     console.log('Creating token for user:', username);
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
       JWT_SECRET,
-      { expiresIn: '1h' } // Reduced from 30d to 1h to require frequent authentication
+      { expiresIn: '30d' } // Set to 30 days for monthly authentication
     );
     
     // Remove password from user object
@@ -165,7 +165,7 @@ app.post('/api/register', async (req, res) => {
     const token = jwt.sign(
       { id: newUser.id, username: newUser.username, role: newUser.role },
       JWT_SECRET,
-      { expiresIn: '1h' } // Reduced from 30d to 1h to match login token
+      { expiresIn: '30d' } // Set to 30 days for monthly authentication
     );
     
     // Return token and user data

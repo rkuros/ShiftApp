@@ -26,8 +26,38 @@ const ShiftApp = {
         // Check if device is mobile
         this.checkDeviceType();
         
-        // Always show login section on initialization - no persistent session
-        this.showSection('login-section');
+        // Check for stored authentication
+        const storedToken = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        
+        if (storedToken && storedUser) {
+            try {
+                console.log('Found stored authentication, attempting to restore session');
+                this.token = storedToken;
+                this.currentUser = JSON.parse(storedUser);
+                
+                // Fetch initial data and show shifts
+                this.fetchInitialData()
+                    .then(() => {
+                        this.showLoggedInState();
+                        this.showSection('shifts-section');
+                        this.renderCalendar();
+                        this.checkNotifications();
+                        console.log('Session restored successfully');
+                    })
+                    .catch(error => {
+                        console.error('Error restoring session:', error);
+                        // If there's an error (like expired token), clear stored data and show login
+                        this.logout();
+                    });
+            } catch (error) {
+                console.error('Error parsing stored user data:', error);
+                this.logout();
+            }
+        } else {
+            // No stored authentication, show login section
+            this.showSection('login-section');
+        }
         
         console.log('ShiftApp initialization complete!');
     },
@@ -310,9 +340,13 @@ const ShiftApp = {
             
             console.log('Login successful, received token and user data');
             
-            // Store token and user data in memory only (not localStorage)
+            // Store token and user data in memory and localStorage
             this.token = responseData.token;
             this.currentUser = responseData.user;
+            
+            // Store in localStorage for persistent login
+            localStorage.setItem('token', this.token);
+            localStorage.setItem('user', JSON.stringify(this.currentUser));
             
             // Fetch initial data and show shifts
             try {
@@ -369,9 +403,13 @@ const ShiftApp = {
             // Parse the response
             const responseData = await response.json();
             
-            // Store token and user data in memory only
+            // Store token and user data in memory and localStorage
             this.token = responseData.token;
             this.currentUser = responseData.user;
+            
+            // Store in localStorage for persistent login
+            localStorage.setItem('token', this.token);
+            localStorage.setItem('user', JSON.stringify(this.currentUser));
             
             // Fetch initial data
             await this.fetchInitialData();
@@ -393,6 +431,10 @@ const ShiftApp = {
     logout: function() {
         this.token = null;
         this.currentUser = null;
+        
+        // Clear localStorage authentication data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         
         document.getElementById('current-user').textContent = 'ゲスト';
         document.getElementById('login-btn').style.display = 'inline-block';
