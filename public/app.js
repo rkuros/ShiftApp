@@ -69,12 +69,8 @@ const ShiftApp = {
         targetSection.classList.add('active');
         targetSection.style.display = 'block'; // Explicitly show the target section
         
-        // Add animation class based on section type
-        if (sectionId === 'shifts-section' || sectionId === 'approvals-section') {
-            targetSection.classList.add('slide-in');
-        } else {
-            targetSection.classList.add('fade-in');
-        }
+        // Add animation class (unified for all sections)
+        targetSection.classList.add('fade-in');
         
         this.currentSection = sectionId;
     },
@@ -750,11 +746,10 @@ const ShiftApp = {
             departmentField.value = this.currentUser.department;
         }
         
-        // Set today's date as the default
+        // Set the date field to be initially empty
         const dateField = document.getElementById('shift-date');
         if (dateField) {
-            const today = new Date();
-            dateField.value = this.formatDate(today);
+            dateField.value = "";
         }
         
         // Add templates to dropdown
@@ -1783,8 +1778,6 @@ const ShiftApp = {
             return;
         }
         
-        if (!confirm(`選択した ${selectedShiftIds.length} 件のシフトを承認しますか？`)) return;
-        
         // Create array of promises for each approval
         const approvalPromises = selectedShiftIds.map(shiftId => {
             return this.fetchAPI(`/shifts/${shiftId}/approve`, { method: 'PUT' });
@@ -1822,8 +1815,6 @@ const ShiftApp = {
             alert('シフトを選択してください');
             return;
         }
-        
-        if (!confirm(`選択した ${selectedShiftIds.length} 件のシフトを却下しますか？`)) return;
         
         // Create array of promises for each rejection
         const rejectionPromises = selectedShiftIds.map(shiftId => {
@@ -1998,8 +1989,6 @@ const ShiftApp = {
             return;
         }
         
-        if (!confirm('このシフトを承認しますか？')) return;
-        
         console.log('Approving shift:', shiftId);
         
         this.fetchAPI(`/shifts/${shiftId}/approve`, { method: 'PUT' })
@@ -2030,8 +2019,6 @@ const ShiftApp = {
             alert('シフトを却下する権限がありません');
             return;
         }
-        
-        if (!confirm('このシフトを却下しますか？')) return;
         
         console.log('Rejecting shift:', shiftId);
         
