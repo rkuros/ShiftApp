@@ -26,8 +26,38 @@ const ShiftApp = {
         // Check if device is mobile
         this.checkDeviceType();
         
-        // Always show login section on initialization - no persistent session
-        this.showSection('login-section');
+        // Check for stored authentication
+        const storedToken = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        
+        if (storedToken && storedUser) {
+            try {
+                console.log('Found stored authentication, attempting to restore session');
+                this.token = storedToken;
+                this.currentUser = JSON.parse(storedUser);
+                
+                // Fetch initial data and show shifts
+                this.fetchInitialData()
+                    .then(() => {
+                        this.showLoggedInState();
+                        this.showSection('shifts-section');
+                        this.renderCalendar();
+                        this.checkNotifications();
+                        console.log('Session restored successfully');
+                    })
+                    .catch(error => {
+                        console.error('Error restoring session:', error);
+                        // If there's an error (like expired token), clear stored data and show login
+                        this.logout();
+                    });
+            } catch (error) {
+                console.error('Error parsing stored user data:', error);
+                this.logout();
+            }
+        } else {
+            // No stored authentication, show login section
+            this.showSection('login-section');
+        }
         
         console.log('ShiftApp initialization complete!');
     },
@@ -310,9 +340,13 @@ const ShiftApp = {
             
             console.log('Login successful, received token and user data');
             
-            // Store token and user data in memory only (not localStorage)
+            // Store token and user data in memory and localStorage
             this.token = responseData.token;
             this.currentUser = responseData.user;
+            
+            // Store in localStorage for persistent login
+            localStorage.setItem('token', this.token);
+            localStorage.setItem('user', JSON.stringify(this.currentUser));
             
             // Fetch initial data and show shifts
             try {
@@ -369,9 +403,13 @@ const ShiftApp = {
             // Parse the response
             const responseData = await response.json();
             
-            // Store token and user data in memory only
+            // Store token and user data in memory and localStorage
             this.token = responseData.token;
             this.currentUser = responseData.user;
+            
+            // Store in localStorage for persistent login
+            localStorage.setItem('token', this.token);
+            localStorage.setItem('user', JSON.stringify(this.currentUser));
             
             // Fetch initial data
             await this.fetchInitialData();
@@ -393,6 +431,10 @@ const ShiftApp = {
     logout: function() {
         this.token = null;
         this.currentUser = null;
+        
+        // Clear localStorage authentication data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         
         document.getElementById('current-user').textContent = 'ゲスト';
         document.getElementById('login-btn').style.display = 'inline-block';
@@ -891,65 +933,98 @@ const ShiftApp = {
         // Sort users by username
         const sortedUsers = [...this.users].sort((a, b) => a.username.localeCompare(b.username));
         
-        // Create table for users
-        let html = `
-            <div class="users-filter">
-                <div class="filter-item">
-                    <label for="user-search">検索:</label>
+        // Create cards container
+        const cardsContainer = document.createElement('div');
+        cardsContainer.className = 'user-cards-container';
+        
+        // Add filtering controls
+        const filterControls = document.createElement('div');
+        filterControls.className = 'user-filter-controls';
+        filterControls.innerHTML = `
+            <div class="filter-group">
+                <label for="user-search">検索:</label>
+                <div class="search-input-wrapper">
                     <input type="text" id="user-search" placeholder="ユーザー名で検索..." onkeyup="ShiftApp.filterUsers()">
-                </div>
-                <div class="filter-item">
-                    <label for="user-department-filter">部署:</label>
-                    <select id="user-department-filter" onchange="ShiftApp.filterUsers()">
-                        <option value="">すべて</option>
-                        ${this.departments.map(dept => `<option value="${dept.name}">${dept.name}</option>`).join('')}
-                    </select>
-                </div>
-                <div class="filter-item">
-                    <label for="user-role-filter">役割:</label>
-                    <select id="user-role-filter" onchange="ShiftApp.filterUsers()">
-                        <option value="">すべて</option>
-                        <option value="staff">スタッフ</option>
-                        <option value="manager">管理者</option>
-                    </select>
+                    <i class="fas fa-search search-icon"></i>
                 </div>
             </div>
-            <table class="users-table">
-                <thead>
-                    <tr>
-                        <th>ユーザー名</th>
-                        <th>メールアドレス</th>
-                        <th>部署</th>
-                        <th>役割</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <div class="filter-group">
+                <label for="user-department-filter">部署:</label>
+                <select id="user-department-filter" onchange="ShiftApp.filterUsers()">
+                    <option value="">すべて</option>
+                    ${this.departments.map(dept => `<option value="${dept.name}">${dept.name}</option>`).join('')}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="user-role-filter">役割:</label>
+                <select id="user-role-filter" onchange="ShiftApp.filterUsers()">
+                    <option value="">すべて</option>
+                    <option value="staff">スタッフ</option>
+                    <option value="manager">管理者</option>
+                </select>
+            </div>
         `;
         
-        // Add rows for each user
+        container.innerHTML = '';
+        container.appendChild(filterControls);
+        
+        // Create cards for users
         sortedUsers.forEach(user => {
-            const isAdmin = user.username === 'admin';
-            const roleName = user.role === 'manager' ? '管理者' : 'スタッフ';
+            // Get user color based on username
+            const userColorClass = this.getUserColorClass(user.username);
             
-            html += `
-                <tr data-username="${user.username}" 
-                    data-department="${user.department || ''}" 
-                    data-role="${user.role || 'staff'}">
-                    <td>${user.username}</td>
-                    <td>${user.email || '-'}</td>
-                    <td>${user.department || '未所属'}</td>
-                    <td>${roleName}</td>
-                    <td>
-                        <button onclick="ShiftApp.editUser('${user.id}')">編集</button>
-                        ${!isAdmin ? `<button onclick="ShiftApp.deleteUser('${user.id}')">削除</button>` : ''}
-                    </td>
-                </tr>
+            const card = document.createElement('div');
+            card.className = `user-card ${userColorClass} ${user.role}`;
+            card.dataset.username = user.username;
+            card.dataset.department = user.department || '';
+            card.dataset.role = user.role || 'staff';
+            
+            // Display admin badge if applicable
+            const isAdmin = user.username === 'admin';
+            const adminBadge = isAdmin ? '<span class="admin-badge">システム管理者</span>' : '';
+            const roleBadge = `<span class="role-badge ${user.role}">${user.role === 'manager' ? '管理者' : 'スタッフ'}</span>`;
+            
+            card.innerHTML = `
+                <div class="user-card-header">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="user-name">
+                        <h3>${user.username}</h3>
+                        <div class="user-badges">
+                            ${roleBadge}
+                            ${adminBadge}
+                        </div>
+                    </div>
+                </div>
+                <div class="user-card-body">
+                    <div class="user-info">
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-envelope"></i></span>
+                            <span class="info-value">${user.email || 'メール未設定'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-building"></i></span>
+                            <span class="info-value">${user.department || '未所属'}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="user-card-footer">
+                    <button class="btn-edit" onclick="ShiftApp.editUser('${user.id}')">
+                        <i class="fas fa-edit"></i> 編集
+                    </button>
+                    ${!isAdmin ? `
+                        <button class="btn-delete" onclick="ShiftApp.deleteUser('${user.id}')">
+                            <i class="fas fa-trash-alt"></i> 削除
+                        </button>
+                    ` : ''}
+                </div>
             `;
+            
+            cardsContainer.appendChild(card);
         });
         
-        html += '</tbody></table>';
-        container.innerHTML = html;
+        container.appendChild(cardsContainer);
         
         // Initialize forms
         this.setupUserForm();
@@ -1002,35 +1077,43 @@ const ShiftApp = {
         const department = departmentFilter.value;
         const role = roleFilter.value;
         
-        // Get all user rows in the table
-        const rows = document.querySelectorAll('.users-table tbody tr');
+        // Get all user cards
+        const cards = document.querySelectorAll('.user-card');
         
-        // Filter rows
-        rows.forEach(row => {
-            // Check if the row matches all filters
+        // Filter cards
+        cards.forEach(card => {
+            // Check if the card matches all filters
             let visible = true;
             
             // Username search
-            const username = row.dataset.username.toLowerCase();
+            const username = card.dataset.username.toLowerCase();
             if (searchTerm && !username.includes(searchTerm)) {
                 visible = false;
             }
             
             // Department filter
-            if (department && row.dataset.department !== department) {
+            if (department && card.dataset.department !== department) {
                 visible = false;
             }
             
             // Role filter
-            if (role && row.dataset.role !== role) {
+            if (role && card.dataset.role !== role) {
                 visible = false;
             }
             
-            // Show/hide row with animation
+            // Show/hide card with animation
             if (visible) {
-                row.style.display = '';
+                card.style.display = '';
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, 10);
             } else {
-                row.style.display = 'none';
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(10px)';
+                setTimeout(() => {
+                    card.style.display = 'none';
+                }, 300);
             }
         });
     },
